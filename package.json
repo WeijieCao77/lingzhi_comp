@@ -1,0 +1,18 @@
+{
+  "name": "lingzhi-arena-starter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "灵治擂台赛通用全栈脚手架：Express 后端代理 AI + 静态前端，GitHub + Railway 一键部署",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
