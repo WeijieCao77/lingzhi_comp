@@ -90,3 +90,11 @@ body::before {
 .holdtalk { text-align: center; user-select: none; touch-action: none; font-weight: 600; }
 .holdtalk.rec { background: color-mix(in srgb, #ff7a7a 22%, var(--surface-2)); border-color: #ff9a9a; }
 ::-webkit-scrollbar { width: 9px; } ::-webkit-scrollbar-thumb { background: rgba(150,140,235,.25); border-radius: 99px; }
+/* 移动端适配 */
+@media (max-width: 480px) {
+  .wrap { padding: 20px 14px 84px; }
+  .card { padding: 16px; }
+  .title { font-size: 22px; }
+  .iconbtn { padding: 11px 12px; }
+  .bubble { max-width: 88%; font-size: 14.5px; }
+}

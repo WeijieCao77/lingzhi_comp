@@ -84,7 +84,7 @@ export default function ChatComposer({ onSendText, onSendVoice, placeholder = "è
 
         {mode === "text" ? (
           <>
-            <input className="input" placeholder={placeholder} value={text}
+            <input className="input" style={{ flex: 1, minWidth: 0 }} placeholder={placeholder} value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(); } }} />
             {canDictate && (
