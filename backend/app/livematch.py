@@ -54,12 +54,14 @@ def join(user_id, emotion_vec, intent, prefer_style, identity) -> dict:
                 _convs[conv_id] = {
                     "users": [uid, user_id],
                     "identities": {uid: e["identity"], user_id: identity},
-                    "messages": [], "ended": False, "created_at": _now(),
+                    "emotions": {uid: list(e["emotion"]), user_id: list(emotion_vec)},
+                    "similarity": sim, "messages": [], "ended": False, "created_at": _now(),
                 }
                 e["conv_id"] = conv_id
                 _waiting[user_id] = _entry(user_id, emotion_vec, intent, prefer_style, identity, conv_id)
                 return {"status": "matched", "conversation_id": conv_id,
-                        "partner_identity": e["identity"], "similarity": sim}
+                        "partner_identity": e["identity"], "partner_emotion": list(e["emotion"]),
+                        "similarity": sim}
         _waiting[user_id] = _entry(user_id, emotion_vec, intent, prefer_style, identity)
         return {"status": "waiting"}
 
@@ -72,12 +74,15 @@ def status(user_id) -> dict:
             return {"status": "expired"}
         if e.get("conv_id"):
             conv = _convs.get(e["conv_id"])
-            partner = None
+            partner = partner_emotion = sim = None
             if conv:
+                sim = conv.get("similarity")
                 for uid in conv["users"]:
                     if uid != user_id:
                         partner = conv["identities"].get(uid)
-            return {"status": "matched", "conversation_id": e["conv_id"], "partner_identity": partner}
+                        partner_emotion = conv.get("emotions", {}).get(uid)
+            return {"status": "matched", "conversation_id": e["conv_id"],
+                    "partner_identity": partner, "partner_emotion": partner_emotion, "similarity": sim}
         return {"status": "waiting"}
 
 

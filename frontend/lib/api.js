@@ -35,4 +35,11 @@ export const api = {
     fd.append("audio", blob, filename);
     return postForm("/api/transcribe", fd);
   },
+  // 真人优先匹配（实时池）
+  liveJoin: (user_id, emotion, intent, prefer_style, user_identity) =>
+    post("/api/live/join", { user_id, emotion, intent, prefer_style, user_identity }),
+  liveStatus: (user_id) => get(`/api/live/status?user_id=${encodeURIComponent(user_id)}`),
+  liveSend: (cid, user_id, text) => post(`/api/live/${cid}/messages`, { user_id, text }),
+  livePoll: (cid, after = 0) => get(`/api/live/${cid}/messages?after=${after}`),
+  liveLeave: (user_id) => post("/api/live/leave", { user_id }),
 };

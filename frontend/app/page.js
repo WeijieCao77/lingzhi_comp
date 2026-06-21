@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import EmotionCard from "../components/EmotionCard";
 import StarMap from "../components/StarMap";
 import ChatScreen from "../components/ChatScreen";
+import RealChatScreen from "../components/RealChatScreen";
 import RoomScreen from "../components/RoomScreen";
 import SafetyCard from "../components/SafetyCard";
 import Constellation from "../components/Constellation";
@@ -35,9 +36,15 @@ export default function Page() {
   const [roomMsgsId, setRoomMsgsId] = useState(null);
   const [roomReady, setRoomReady] = useState(false);    // 小屋已匹配、待你确认是否进入
   const stopDict = useRef(null);
+  const uidRef = useRef(null);                           // 本机匿名 id（真人池用）
 
   useEffect(() => { api.personas().then((d) => setPool(d.personas || [])).catch(() => {}); }, []);
-  useEffect(() => { setHistory(getEntries()); setMounted(true); }, []);
+  useEffect(() => {
+    setHistory(getEntries()); setMounted(true);
+    let u = null;
+    try { u = localStorage.getItem("gravity_uid"); if (!u) { u = "u_" + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem("gravity_uid", u); } } catch {}
+    uidRef.current = u || ("u_" + Date.now());
+  }, []);
 
   const reset = () => {
     setStep("input"); setText(""); setEmotion(null); setKindred(null); setIdentity(null);
@@ -45,11 +52,16 @@ export default function Page() {
     setSafety(null); setMode("resonance"); setStyle(null);
     setChatMode("solo"); setRoom(null); setRoomReady(false);
     setConvMsgs([]); setConvCid(null); setRoomMsgs([]); setRoomMsgsId(null);
+    try { api.liveLeave(uidRef.current); } catch {}      // 退出真人池
   };
-  const remix = () => { setMatched(null); setMatching(false); setMatchDone(false); };
+  const remix = () => {
+    setMatched(null); setMatching(false); setMatchDone(false);
+    try { api.liveLeave(uidRef.current); } catch {}
+  };
 
-  // 进聊天室：首次进入才铺开场白；从「返回」再进则保留之前的对话
+  // 进聊天室：真人 → 真人聊天室；否则 AI（首次进入才铺开场白，回退再进保留对话）
   const enterChat = () => {
+    if (matched?.isReal) { setStep("livechat"); return; }
     if (matched && convCid !== matched.conversation_id) {
       setConvMsgs([{ sender: "them", text: matched.opener, name: matched.partner.anon_name }]);
       setConvCid(matched.conversation_id);
@@ -113,16 +125,50 @@ export default function Page() {
   const doMatch = async () => {
     if (busy) return;
     setBusy(true); setMatched(null); setMatchDone(false); setMatching(true); setRoom(null); setRoomReady(false);
+    const uid = uidRef.current;
     try {
-      const res = await api.match(emotion, mode, style, identity);
-      setMatched(res);   // 传给 StarMap 后触发"靠近"动画
+      // 真人优先：先找真人池；AI 并发跑着做保底（没真人时立刻顶上，不额外等）
+      const aiPromise = api.match(emotion, mode, style, identity).catch(() => null);
+      let real = null;
+      try {
+        const j = await api.liveJoin(uid, emotion, "solo", style, identity);
+        if (j && j.status === "matched") real = j;
+        else {
+          for (let i = 0; i < 5 && !real; i++) {              // ~2.5s 等情绪相近的真人
+            await new Promise((r) => setTimeout(r, 500));
+            const s = await api.liveStatus(uid).catch(() => null);
+            if (s && s.status === "matched") real = s;
+          }
+        }
+      } catch {}
+
+      if (real) {
+        const pe = real.partner_emotion || [0, 0.5];
+        setMatched({
+          isReal: true, live_conv_id: real.conversation_id, mode,
+          partner: {
+            anon_name: real.partner_identity?.anon_name || "在线的人",
+            avatar: real.partner_identity?.avatar || "🌙",
+            valence: pe[0], arousal: pe[1], color: "#d8a6ff",
+            similarity: real.similarity || 90,
+            reason: `和你 ${real.similarity || ""}% 同频 · 此刻在线的真人`,
+          },
+        });
+      } else {
+        try { await api.liveLeave(uid); } catch {}          // 没真人，退出等待池
+        const res = await aiPromise;
+        if (!res) { alert("匹配失败，请重试"); setMatching(false); return; }
+        setMatched({ ...res, isReal: false });
+      }
     } catch {
       alert("匹配失败，请重试"); setMatching(false);
     } finally { setBusy(false); }
   };
 
   const partnerColor = matched
-    ? (pool.find((p) => p.anon_name === matched.partner.anon_name)?.color || "#b98cff")
+    ? (matched.isReal
+        ? (matched.partner.color || "#d8a6ff")
+        : (pool.find((p) => p.anon_name === matched.partner.anon_name)?.color || "#b98cff"))
     : null;
 
   return (
@@ -224,7 +270,10 @@ export default function Page() {
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ fontSize: 30 }}>{matched.partner.avatar}</div>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 17 }}>{matched.partner.anon_name}</div>
+                  <div style={{ fontWeight: 800, fontSize: 17 }}>
+                    {matched.partner.anon_name}
+                    {matched.isReal && <span style={{ fontSize: 11, marginLeft: 8, padding: "2px 8px", borderRadius: 999, background: "color-mix(in srgb, var(--accent) 30%, transparent)", color: "var(--text)", fontWeight: 700, verticalAlign: "middle" }}>真人在线</span>}
+                  </div>
                   <div className="muted" style={{ fontSize: 13 }}>{matched.partner.reason}</div>
                 </div>
               </div>
@@ -270,9 +319,14 @@ export default function Page() {
         </div>
       )}
 
-      {step === "chat" && matched && (
+      {step === "chat" && matched && !matched.isReal && (
         <ChatScreen conv={matched} messages={convMsgs} setMessages={setConvMsgs}
           onBack={() => setStep("emotion")} onRestart={reset} />
+      )}
+
+      {step === "livechat" && matched?.isReal && (
+        <RealChatScreen convId={matched.live_conv_id} uid={uidRef.current} me={identity}
+          partner={matched.partner} onBack={() => setStep("emotion")} onLeave={reset} />
       )}
 
       {step === "room" && room && (
