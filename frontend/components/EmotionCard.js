@@ -37,8 +37,18 @@ export default function EmotionCard({ emotion, kindred }) {
       )}
 
       {typeof kindred === "number" && kindred > 0 && (
-        <div style={{ marginTop: 14, fontSize: 13 }} className="muted">
-          此刻有 <b style={{ color: "var(--text)" }}>{kindred}</b> 个人，和你站在相近的情绪里。
+        <div style={{
+          marginTop: 16, display: "flex", alignItems: "center", gap: 16,
+          padding: "14px 18px", borderRadius: 14,
+          border: `1px solid color-mix(in srgb, ${c} 50%, var(--border))`,
+          background: `color-mix(in srgb, ${c} 13%, rgba(10, 8, 30, 0.35))`,
+        }}>
+          <div style={{ fontSize: 40, fontWeight: 800, lineHeight: 1, color: c,
+            textShadow: `0 0 22px ${c}99`, flexShrink: 0 }}>{kindred}</div>
+          <div style={{ lineHeight: 1.5 }}>
+            <div style={{ fontSize: 15 }}>个人，<b>此刻正和你站在相近的情绪里</b></div>
+            <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>在这片情绪星空下，你并不孤单 ✦</div>
+          </div>
         </div>
       )}
     </div>

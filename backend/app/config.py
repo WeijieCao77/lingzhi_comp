@@ -13,6 +13,8 @@ ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8").strip()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "").strip() or None
+# 语音转文字（纯语音消息）用的模型——只走 OpenAI（Anthropic 无 STT）
+OPENAI_TRANSCRIBE_MODEL = os.getenv("OPENAI_TRANSCRIBE_MODEL", "whisper-1").strip()
 
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "*").strip()
 

@@ -1,11 +1,14 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "../lib/api";
 import EmotionCard from "../components/EmotionCard";
 import StarMap from "../components/StarMap";
 import ChatScreen from "../components/ChatScreen";
 import RoomScreen from "../components/RoomScreen";
 import SafetyCard from "../components/SafetyCard";
+import Constellation from "../components/Constellation";
+import { addEntry, getEntries, clearEntries } from "../lib/history";
+import { speechSupported, startDictation } from "../lib/speech";
 
 export default function Page() {
   const [step, setStep] = useState("input");   // input | emotion | chat | safety
@@ -23,8 +26,13 @@ export default function Page() {
   const [chatMode, setChatMode] = useState("solo");  // solo(一对一) | room(小房间)
   const [room, setRoom] = useState(null);
   const [safety, setSafety] = useState(null);
+  const [history, setHistory] = useState([]);           // 情绪星座（本地）
+  const [dictating, setDictating] = useState(false);    // 首页听写中
+  const [mounted, setMounted] = useState(false);        // 避免 SSR 水合不一致
+  const stopDict = useRef(null);
 
   useEffect(() => { api.personas().then((d) => setPool(d.personas || [])).catch(() => {}); }, []);
+  useEffect(() => { setHistory(getEntries()); setMounted(true); }, []);
 
   const reset = () => {
     setStep("input"); setText(""); setEmotion(null); setKindred(null); setIdentity(null);
@@ -45,9 +53,21 @@ export default function Page() {
     } finally { setBusy(false); }
   };
 
+  const stopDictation = () => { if (stopDict.current) { stopDict.current(); stopDict.current = null; } setDictating(false); };
+  const toggleDictation = () => {
+    if (dictating) { stopDictation(); return; }
+    setDictating(true);
+    stopDict.current = startDictation({
+      onText: (t) => setText(t),
+      onEnd: () => { setDictating(false); stopDict.current = null; },
+      onError: () => { setDictating(false); stopDict.current = null; },
+    });
+  };
+
   const analyze = async () => {
     const t = text.trim();
     if (!t || busy) return;
+    stopDictation();
     setBusy(true);
     try {
       const res = await api.analyze(t);
@@ -55,11 +75,15 @@ export default function Page() {
       else {
         setEmotion(res.emotion); setKindred(res.kindred_count);
         setIdentity(res.user_identity || null); setMatched(null); setStep("emotion");
+        addEntry(res.emotion, res.user_identity); setHistory(getEntries());   // 沉淀进情绪星座
       }
     } catch {
       alert("分析失败，请确认后端已启动");
     } finally { setBusy(false); }
   };
+
+  const adjustStar = (valence, arousal) => setEmotion((e) => (e ? { ...e, valence, arousal } : e));
+  const clearHistory = () => { clearEntries(); setHistory([]); };
 
   const doMatch = async () => {
     if (busy) return;
@@ -80,7 +104,7 @@ export default function Page() {
     <div className="wrap">
       <header className="center" style={{ marginBottom: 22 }}>
         <h1 className="title">心引力 · Gravity</h1>
-        <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>不按你是谁，按你此刻的心情，找此刻的人。</p>
+        <p className="muted" style={{ marginTop: 6, fontSize: 14, lineHeight: 1.6 }}>在你最有情绪的那一刻，找到和你处在同一片情绪星空下的人。</p>
       </header>
 
       {step === "input" && (
@@ -89,10 +113,20 @@ export default function Page() {
           <textarea className="input" rows={5} placeholder="随便写写……今天发生了什么，或者只是一种说不清的感觉。"
             value={text} onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") analyze(); }} />
-          <button className="btn btn-primary" style={{ width: "100%", marginTop: 14 }} onClick={analyze} disabled={busy}>
+          {mounted && speechSupported() && (
+            <button className={"btn iconbtn" + (dictating ? " rec" : "")} style={{ marginTop: 10 }} onClick={toggleDictation}>
+              {dictating ? "■ 停止听写" : "🎤 说出来（语音转文字）"}
+            </button>
+          )}
+          <button className="btn btn-primary" style={{ width: "100%", marginTop: 12 }} onClick={analyze} disabled={busy}>
             {busy ? <span className="spin" /> : "让此刻的我，被读懂 ✦"}
           </button>
           <p className="muted center" style={{ fontSize: 12, marginTop: 12 }}>全程匿名 · 你写下的不会暴露任何身份</p>
+          {mounted && history.length > 0 && (
+            <button className="btn" style={{ width: "100%", marginTop: 10 }} onClick={() => setStep("constellation")}>
+              ✦ 我的情绪星座（{history.length}）
+            </button>
+          )}
         </div>
       )}
 
@@ -120,6 +154,8 @@ export default function Page() {
               partner={matched ? { valence: matched.partner.valence, arousal: matched.partner.arousal, color: partnerColor, anon_name: matched.partner.anon_name } : null}
               pool={pool}
               similarity={matched?.partner.similarity}
+              editable={!matching && !matchDone}
+              onUserAdjust={adjustStar}
               onComplete={() => { setMatchDone(true); setMatching(false); }}
             />
 
@@ -137,7 +173,7 @@ export default function Page() {
                     <div className="muted" style={{ fontSize: 13, marginBottom: 7 }}>想找一个怎样的人？</div>
                     <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
                       <Chip on={mode === "resonance"} onClick={() => setMode("resonance")}>同频 · 和我一样</Chip>
-                      <Chip on={mode === "counterbalance"} onClick={() => setMode("counterbalance")}>互补 · 能接住我</Chip>
+                      <Chip on={mode === "counterbalance"} onClick={() => setMode("counterbalance")}>牵引 · 轻轻拉我一把</Chip>
                     </div>
                   </>
                 )}
@@ -190,6 +226,10 @@ export default function Page() {
 
       {step === "safety" && safety && (
         <SafetyCard safety={safety} onBack={reset} />
+      )}
+
+      {step === "constellation" && (
+        <Constellation entries={history} onBack={() => setStep("input")} onClear={clearHistory} />
       )}
     </div>
   );

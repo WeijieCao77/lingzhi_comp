@@ -8,18 +8,41 @@ import { useEffect, useRef, useState } from "react";
 const W = 340, H = 300, PAD = 36;
 const xOf = (v) => PAD + ((v + 1) / 2) * (W - 2 * PAD);
 const yOf = (a) => (H - PAD) - a * (H - 2 * PAD);
+const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+const vOf = (x) => clamp(((x - PAD) / (W - 2 * PAD)) * 2 - 1, -1, 1);   // 反推 valence
+const aOf = (y) => clamp(((H - PAD) - y) / (H - 2 * PAD), 0, 1);        // 反推 arousal
 const lerp = (a, b, t) => a + (b - a) * t;
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+// 确定性伪随机（按索引），给背景星点打散——别让 10×10 网格看起来像格子，更像真实星海。
+const hash = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
 function sparkle(r) {
   return `M0,${-r * 3} L${r * 0.5},${-r * 0.5} L${r * 3},0 L${r * 0.5},${r * 0.5} L0,${r * 3} L${-r * 0.5},${r * 0.5} L${-r * 3},0 L${-r * 0.5},${-r * 0.5} Z`;
 }
 
-export default function StarMap({ user, partner, similarity, pool = [], onComplete }) {
+export default function StarMap({ user, partner, similarity, pool = [], onComplete, editable = false, onUserAdjust }) {
   const [t, setT] = useState(0);
   const raf = useRef();
   const called = useRef(false);
+  const svgRef = useRef(null);
+  const dragging = useRef(false);
   const DUR = 2600;
+
+  const canDrag = editable && !partner && typeof onUserAdjust === "function";
+  const pointToVA = (e) => {
+    const rect = svgRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * W;
+    const y = ((e.clientY - rect.top) / rect.height) * H;
+    return [Math.round(vOf(x) * 100) / 100, Math.round(aOf(y) * 100) / 100];
+  };
+  const onDown = (e) => {
+    if (!canDrag) return;
+    dragging.current = true;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    const [v, a] = pointToVA(e); onUserAdjust(v, a);
+  };
+  const onMove = (e) => { if (canDrag && dragging.current) { const [v, a] = pointToVA(e); onUserAdjust(v, a); } };
+  const onUp = () => { dragging.current = false; };
 
   useEffect(() => {
     if (!partner) { setT(0); called.current = false; return; }
@@ -63,7 +86,9 @@ export default function StarMap({ user, partner, similarity, pool = [], onComple
   const pColor = (partner && partner.color) || "#d8a6ff";
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: 380, display: "block", margin: "0 auto" }}>
+    <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%"
+      style={{ maxWidth: 380, display: "block", margin: "0 auto", touchAction: canDrag ? "none" : "auto" }}
+      onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
       <defs>
         <filter id="glow" x="-120%" y="-120%" width="340%" height="340%">
           <feGaussianBlur stdDeviation="2.2" result="b" />
@@ -85,11 +110,17 @@ export default function StarMap({ user, partner, similarity, pool = [], onComple
       <text x={PAD - 4} y={H - 8} fill="rgba(214,208,255,0.78)" fontSize="11">低落而安静</text>
       <text x={W - PAD + 4} y={H - 8} fill="rgba(214,208,255,0.78)" fontSize="11" textAnchor="end">平静而温柔</text>
 
-      {/* 星层：池子里的人 */}
-      {pool.map((p, i) => (
-        <circle key={i} cx={xOf(p.valence)} cy={yOf(p.arousal)} r={1.6 + (i % 3) * 0.5}
-          fill="#fff" opacity={othersOp * (0.45 + (i % 4) * 0.13)} />
-      ))}
+      {/* 星层：池子里的人（打散网格 + 大小/明暗各异，像真实星海） */}
+      {pool.map((p, i) => {
+        const jx = (hash(i + 1) - 0.5) * 19;
+        const jy = (hash(i * 2 + 7) - 0.5) * 17;
+        const r = 1.1 + hash(i + 3) * 1.9;
+        const op = 0.35 + hash(i + 5) * 0.55;
+        return (
+          <circle key={i} cx={xOf(p.valence) + jx} cy={yOf(p.arousal) + jy} r={r}
+            fill="#fff" opacity={othersOp * op} />
+        );
+      })}
 
       {/* 靠近时的连线 */}
       {matching && t > 0.16 && touch < 0.5 && (
@@ -123,8 +154,15 @@ export default function StarMap({ user, partner, similarity, pool = [], onComple
           <circle r="2.8" fill="#fff" />
         </g>
       )}
+      {/* 可拖动的抓取区（仅静态可编辑时） */}
+      {canDrag && (
+        <circle cx={u0[0]} cy={u0[1]} r="20" fill="transparent" style={{ cursor: "grab" }} onPointerDown={onDown} />
+      )}
       {!matching && (
         <text x={u0[0]} y={u0[1] + 17} fill="#ece9fb" fontSize="10" textAnchor="middle" fontWeight="700">你</text>
+      )}
+      {canDrag && (
+        <text x={W / 2} y={H - 22} textAnchor="middle" fill="rgba(214,208,255,0.6)" fontSize="10">↔ 拖动你的星，微调此刻的你</text>
       )}
     </svg>
   );

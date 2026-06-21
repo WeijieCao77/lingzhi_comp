@@ -2,7 +2,8 @@
 
 两种模式（同一套向量，两种距离目标——计算极轻量）：
 - resonance(同频)  : 找情绪最接近你的人 —— 被理解、被共鸣
-- counterbalance(互补): 找一个更稳、更能接住你的人 —— 被安放、被托住
+- counterbalance(牵引): 找一个离你不远、但比你稍平静/正向一点的人 —— 温柔把你拉一把
+                        （刻意不找情绪相反的人，避免两个 emo 越聊越沉）
 
 返回相似度% + 匹配理由，让"为什么匹配"看得见（反转扣分项③为亮点）。
 """
@@ -23,9 +24,10 @@ def similarity(a: Tuple[float, float], b: Tuple[float, float]) -> int:
 
 
 def _anchor_point(e: Emotion) -> Tuple[float, float]:
-    """互补目标点：把你的情绪拉向更平静、略微更正向的位置——一个能托住你的人。"""
-    v = max(-1.0, min(1.0, e.valence * 0.35 + 0.25))
-    a = max(0.05, e.arousal * 0.45)
+    """牵引目标点：在你此刻的基础上，往更平静、略更正向的方向只挪一点点——
+    一个离你不远、状态稍稳一些的人，能温柔把你拉一把（而非情绪相反的人）。"""
+    v = max(-1.0, min(1.0, e.valence + 0.28))
+    a = max(0.05, min(1.0, e.arousal - 0.18))
     return (v, a)
 
 
@@ -60,7 +62,7 @@ def match(user: Emotion, pool: List[dict], mode: str = "resonance",
     pq = quadrant(best["valence"], best["arousal"])
 
     if mode == "counterbalance":
-        reason = f"TA此刻在「{pq}」里，比你稳一些——也许刚好能接住你。"
+        reason = f"TA此刻在「{pq}」，比你稳一点、也亮一点——也许能轻轻把你拉一把。"
     else:
         if uq == pq:
             reason = f"你们都站在「{uq}」里，{sim}% 同频。"

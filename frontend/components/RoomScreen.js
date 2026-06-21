@@ -1,25 +1,24 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { api } from "../lib/api";
+import ChatComposer from "./ChatComposer";
+import VoiceBubble from "./VoiceBubble";
 
-// 同频小屋：你 + 3~4 个情绪相近的匿名人。室友由后端 AI 各自按人设回应。
+// 同频小屋：你 + 3~4 个情绪相近的匿名人。室友由后端 AI 各自按人设回应。支持文字 / 听写 / 纯语音。
 export default function RoomScreen({ room, onLeave }) {
   const me = room.user_identity;
   const [msgs, setMsgs] = useState(room.messages || []);
-  const [text, setText] = useState("");
   const [typing, setTyping] = useState(false);
   const endRef = useRef(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, typing]);
 
-  const send = async () => {
-    const t = text.trim();
-    if (!t || typing) return;
-    setText("");
-    setMsgs((m) => [...m, { sender: "user", name: me.anon_name, avatar: me.avatar, text: t }]);
+  const deliver = async (displayMsg, aiText) => {
+    if (typing) return;
+    setMsgs((m) => [...m, displayMsg]);
     setTyping(true);
     try {
-      const res = await api.sendRoomMessage(room.room_id, t);
+      const res = await api.sendRoomMessage(room.room_id, aiText);
       setMsgs((m) => [...m, ...(res.replies || [])]);
     } catch {
       setMsgs((m) => [...m, { sender: "sys", name: "", avatar: "🌙", text: "（信号断了一下…大家还在。）" }]);
@@ -27,6 +26,10 @@ export default function RoomScreen({ room, onLeave }) {
       setTyping(false);
     }
   };
+
+  const sendText = (t) => deliver({ sender: "user", name: me.anon_name, avatar: me.avatar, text: t }, t);
+  const sendVoice = ({ audioUrl, durationMs, text }) =>
+    deliver({ sender: "user", name: me.anon_name, avatar: me.avatar, kind: "voice", audioUrl, durationMs, text }, text);
 
   return (
     <div className="fade">
@@ -56,7 +59,9 @@ export default function RoomScreen({ room, onLeave }) {
               <span style={{ fontSize: 22, flexShrink: 0 }}>{m.avatar}</span>
               <div style={{ maxWidth: "74%" }}>
                 {!mine && <div className="muted" style={{ fontSize: 11, marginBottom: 3 }}>{m.name}</div>}
-                <div className={"bubble " + (mine ? "me" : "them")}>{m.text}</div>
+                {m.kind === "voice"
+                  ? <VoiceBubble url={m.audioUrl} durationMs={m.durationMs} text={m.text} mine={mine} />
+                  : <div className={"bubble " + (mine ? "me" : "them")}>{m.text}</div>}
               </div>
             </div>
           );
@@ -70,13 +75,7 @@ export default function RoomScreen({ room, onLeave }) {
         <div ref={endRef} />
       </div>
 
-      {/* 输入 */}
-      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-        <input className="input" placeholder="在小屋里说点什么…" value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} />
-        <button className="btn btn-primary" onClick={send} disabled={typing}>发送</button>
-      </div>
+      <ChatComposer onSendText={sendText} onSendVoice={sendVoice} placeholder="在小屋里说点什么…" disabled={typing} />
       <div className="muted center" style={{ fontSize: 12, marginTop: 10 }}>
         你是「{me.anon_name}」{me.avatar} · 屋里的人不知道你是谁
       </div>

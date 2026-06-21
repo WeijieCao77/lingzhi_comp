@@ -14,6 +14,11 @@ async function get(path) {
   if (!r.ok) throw new Error("HTTP " + r.status);
   return r.json();
 }
+async function postForm(path, formData) {
+  const r = await fetch(BASE + path, { method: "POST", body: formData });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return r.json();
+}
 
 export const api = {
   health: () => get("/api/health"),
@@ -25,4 +30,9 @@ export const api = {
   createRoom: (emotion, prefer_style, user_identity) =>
     post("/api/room", { emotion, prefer_style, user_identity, size: 6 }),
   sendRoomMessage: (rid, text) => post(`/api/rooms/${rid}/messages`, { text }),
+  transcribe: (blob) => {
+    const fd = new FormData();
+    fd.append("audio", blob, "voice.webm");
+    return postForm("/api/transcribe", fd);
+  },
 };

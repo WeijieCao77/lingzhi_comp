@@ -4,7 +4,7 @@
 """
 from __future__ import annotations
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -14,6 +14,7 @@ from .providers import get_provider
 from .matching import match, similarity, nearest
 from .personas import all_personas, personas_for, random_identity, identity_for
 from .safety import check_safety
+from .transcribe import transcribe_audio
 from . import store
 
 app = FastAPI(title="同频 Resonance API", version="1.0")
@@ -139,6 +140,19 @@ def analyze(body: AnalyzeIn):
         "kindred_count": _kindred_count(emo),       # "此刻有 N 个人和你同频"
         "user_identity": identity_for(emo),          # 按情绪自动分配的卡通动物形象
     }
+
+
+@app.post("/api/transcribe")
+async def transcribe(audio: UploadFile = File(...)):
+    """纯语音消息 → 文字（OpenAI Whisper）。失败给清晰错误，前端退回文字输入。"""
+    data = await audio.read()
+    if not data:
+        raise HTTPException(400, "音频为空")
+    try:
+        text = transcribe_audio(data, audio.filename or "audio.webm")
+    except Exception:
+        raise HTTPException(503, "语音转写暂不可用，请改用文字")
+    return {"text": text}
 
 
 @app.post("/api/match")
