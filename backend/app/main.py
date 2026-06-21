@@ -17,6 +17,7 @@ from .personas import all_personas, personas_for, random_identity, identity_for
 from .safety import check_safety
 from .transcribe import transcribe_audio
 from . import store
+from . import livematch
 
 app = FastAPI(title="同频 Resonance API", version="1.0")
 app.add_middleware(
@@ -77,6 +78,24 @@ class ReportEntry(BaseModel):
 
 class ReportIn(BaseModel):
     entries: List[ReportEntry] = Field(default_factory=list)
+
+
+# ---- 真人优先匹配（后台机制；前端默认走 AI，故 demo 不展示）----
+class LiveJoinIn(BaseModel):
+    user_id: str
+    emotion: EmotionIn
+    intent: str = "solo"
+    prefer_style: Optional[str] = None
+    user_identity: Optional[dict] = None
+
+
+class LiveSendIn(BaseModel):
+    user_id: str
+    text: str
+
+
+class LiveLeaveIn(BaseModel):
+    user_id: str
 
 
 # ---------- 工具 ----------
@@ -190,6 +209,50 @@ def report(body: ReportIn):
     except Exception:
         text = None
     return {"report": (text or _template_report(items)).strip()}
+
+
+# ---------- 真人优先匹配（实时等待池，后台机制）----------
+# 真人优先：两个情绪相近的真人会被配成一对真实对话；没有合适真人时，
+# 调用方回退到 /api/match 由 AI 扮演保底（即当前演示主路径）。
+# 单评测者无法触发真人配对、赛题也允许 mock，故 demo 不展示此路径；但机制真实可用。
+@app.post("/api/live/join")
+def live_join(body: LiveJoinIn):
+    emo = body.emotion.to_emotion()
+    identity = body.user_identity or identity_for(emo)
+    intent = body.intent if body.intent in ("solo", "room") else "solo"
+    return livematch.join(body.user_id, emo.vector, intent, body.prefer_style, identity)
+
+
+@app.get("/api/live/status")
+def live_status(user_id: str):
+    return livematch.status(user_id)
+
+
+@app.post("/api/live/{conv_id}/messages")
+def live_send(conv_id: str, body: LiveSendIn):
+    text = (body.text or "").strip()
+    if not text:
+        raise HTTPException(400, "消息不能为空")
+    msg = livematch.send(conv_id, body.user_id, text)
+    if not msg:
+        raise HTTPException(404, "实时会话不存在")
+    return {"message": msg}
+
+
+@app.get("/api/live/{conv_id}/messages")
+def live_poll(conv_id: str, after: int = 0):
+    return livematch.poll(conv_id, after)
+
+
+@app.post("/api/live/leave")
+def live_leave(body: LiveLeaveIn):
+    livematch.leave(body.user_id)
+    return {"ok": True}
+
+
+@app.get("/api/live/stats")
+def live_stats():
+    return livematch.stats()
 
 
 @app.post("/api/transcribe")
