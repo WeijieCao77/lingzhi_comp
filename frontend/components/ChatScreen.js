@@ -5,25 +5,25 @@ import ChatComposer from "./ChatComposer";
 import VoiceBubble from "./VoiceBubble";
 
 // 匿名对话：对象由后端 AI 按人设+情绪基调扮演。真发真收。支持文字 / 听写 / 纯语音。
-export default function ChatScreen({ conv, onRestart }) {
+// 消息提升到页面层（messages/setMessages），所以回退到情绪页再回来不会丢对话。
+export default function ChatScreen({ conv, messages, setMessages, onBack, onRestart }) {
   const partner = conv.partner;
   const me = conv.user_identity;
-  const [msgs, setMsgs] = useState([{ sender: "them", text: conv.opener, name: partner.anon_name }]);
   const [typing, setTyping] = useState(false);
   const endRef = useRef(null);
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, typing]);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, typing]);
 
   // 把一条用户消息(文字气泡或语音气泡)发出，并取回 AI 回复。aiText = 给 AI 的文本(语音则为转写)。
   const deliver = async (displayMsg, aiText) => {
     if (typing) return;
-    setMsgs((m) => [...m, displayMsg]);
+    setMessages((m) => [...m, displayMsg]);
     setTyping(true);
     try {
       const res = await api.sendMessage(conv.conversation_id, aiText);
-      setMsgs((m) => [...m, { sender: "them", text: res.reply.text, name: partner.anon_name }]);
+      setMessages((m) => [...m, { sender: "them", text: res.reply.text, name: partner.anon_name }]);
     } catch {
-      setMsgs((m) => [...m, { sender: "them", text: "（信号好像断了一下…我还在。）", name: partner.anon_name }]);
+      setMessages((m) => [...m, { sender: "them", text: "（信号好像断了一下…我还在。）", name: partner.anon_name }]);
     } finally {
       setTyping(false);
     }
@@ -36,9 +36,10 @@ export default function ChatScreen({ conv, onRestart }) {
   return (
     <div className="fade">
       {/* 对象头部 */}
-      <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, marginBottom: 12 }}>
+      <div className="card" style={{ display: "flex", alignItems: "center", gap: 10, padding: 14, marginBottom: 12 }}>
+        <button className="btn" style={{ padding: "6px 11px", fontSize: 15 }} title="返回情绪页" onClick={onBack}>←</button>
         <div style={{ fontSize: 26 }}>{partner.avatar}</div>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700 }}>{partner.anon_name}</div>
           <div className="muted" style={{ fontSize: 12 }}>
             {partner.label} · {partner.similarity}% {conv.mode === "counterbalance" ? "牵引" : "同频"}
@@ -50,7 +51,7 @@ export default function ChatScreen({ conv, onRestart }) {
 
       {/* 消息流 */}
       <div className="card" style={{ minHeight: 320, maxHeight: 440, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
-        {msgs.map((m, i) => (
+        {messages.map((m, i) => (
           <div key={i} style={{ alignSelf: m.sender === "me" ? "flex-end" : "flex-start", maxWidth: "82%" }}>
             {m.kind === "voice"
               ? <VoiceBubble url={m.audioUrl} durationMs={m.durationMs} text={m.text} />
@@ -59,6 +60,7 @@ export default function ChatScreen({ conv, onRestart }) {
         ))}
         {typing && (
           <div style={{ alignSelf: "flex-start" }}>
+            <div className="muted" style={{ fontSize: 11, marginBottom: 3, marginLeft: 4 }}>{partner.anon_name} 正在输入…</div>
             <div className="bubble them dots"><span>·</span><span>·</span><span>·</span></div>
           </div>
         )}

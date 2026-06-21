@@ -29,6 +29,9 @@ export default function Page() {
   const [history, setHistory] = useState([]);           // 情绪星座（本地）
   const [dictating, setDictating] = useState(false);    // 首页听写中
   const [mounted, setMounted] = useState(false);        // 避免 SSR 水合不一致
+  const [convMsgs, setConvMsgs] = useState([]);         // 一对一消息（提到页面层，回退不丢）
+  const [convCid, setConvCid] = useState(null);
+  const [roomMsgs, setRoomMsgs] = useState([]);         // 小屋消息（同上）
   const stopDict = useRef(null);
 
   useEffect(() => { api.personas().then((d) => setPool(d.personas || [])).catch(() => {}); }, []);
@@ -39,15 +42,25 @@ export default function Page() {
     setMatched(null); setMatching(false); setMatchDone(false);
     setSafety(null); setMode("resonance"); setStyle(null);
     setChatMode("solo"); setRoom(null);
+    setConvMsgs([]); setConvCid(null); setRoomMsgs([]);
   };
   const remix = () => { setMatched(null); setMatching(false); setMatchDone(false); };
+
+  // 进聊天室：首次进入才铺开场白；从「返回」再进则保留之前的对话
+  const enterChat = () => {
+    if (matched && convCid !== matched.conversation_id) {
+      setConvMsgs([{ sender: "them", text: matched.opener, name: matched.partner.anon_name }]);
+      setConvCid(matched.conversation_id);
+    }
+    setStep("chat");
+  };
 
   const doRoom = async () => {
     if (busy) return;
     setBusy(true);
     try {
       const res = await api.createRoom(emotion, style, identity);
-      setRoom(res); setStep("room");
+      setRoom(res); setRoomMsgs(res.messages || []); setMatched(null); setStep("room");
     } catch {
       alert("进入小屋失败，请重试");
     } finally { setBusy(false); }
@@ -75,7 +88,7 @@ export default function Page() {
       else {
         setEmotion(res.emotion); setKindred(res.kindred_count);
         setIdentity(res.user_identity || null); setMatched(null); setStep("emotion");
-        addEntry(res.emotion, res.user_identity); setHistory(getEntries());   // 沉淀进情绪星座
+        addEntry(res.emotion, res.user_identity, t); setHistory(getEntries());   // 沉淀进情绪星座（含原话）
       }
     } catch {
       alert("分析失败，请确认后端已启动");
@@ -87,7 +100,7 @@ export default function Page() {
 
   const doMatch = async () => {
     if (busy) return;
-    setBusy(true); setMatched(null); setMatchDone(false); setMatching(true);
+    setBusy(true); setMatched(null); setMatchDone(false); setMatching(true); setRoom(null);
     try {
       const res = await api.match(emotion, mode, style, identity);
       setMatched(res);   // 传给 StarMap 后触发"靠近"动画
@@ -203,7 +216,7 @@ export default function Page() {
                   <div className="muted" style={{ fontSize: 13 }}>{matched.partner.reason}</div>
                 </div>
               </div>
-              <button className="btn btn-primary" style={{ width: "100%", marginTop: 14 }} onClick={() => setStep("chat")}>
+              <button className="btn btn-primary" style={{ width: "100%", marginTop: 14 }} onClick={enterChat}>
                 进入聊天室 →
               </button>
               <button className="btn" style={{ width: "100%", marginTop: 8 }} onClick={remix}>换一种方式，重新找</button>
@@ -211,17 +224,24 @@ export default function Page() {
           )}
 
           {!matching && !matchDone && (
-            <button className="btn" onClick={reset}>← 重新写一段心情</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="btn" style={{ flex: 1 }} onClick={() => setStep("input")}>← 返回修改（保留刚才写的）</button>
+              {room && (
+                <button className="btn" onClick={() => setStep("room")}>↩ 回到刚才的小屋</button>
+              )}
+            </div>
           )}
         </div>
       )}
 
       {step === "chat" && matched && (
-        <ChatScreen conv={matched} onRestart={reset} />
+        <ChatScreen conv={matched} messages={convMsgs} setMessages={setConvMsgs}
+          onBack={() => setStep("emotion")} onRestart={reset} />
       )}
 
       {step === "room" && room && (
-        <RoomScreen room={room} onLeave={reset} />
+        <RoomScreen room={room} messages={roomMsgs} setMessages={setRoomMsgs}
+          onBack={() => setStep("emotion")} onLeave={reset} />
       )}
 
       {step === "safety" && safety && (

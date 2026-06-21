@@ -4,24 +4,25 @@ import { api } from "../lib/api";
 import ChatComposer from "./ChatComposer";
 import VoiceBubble from "./VoiceBubble";
 
-// 同频小屋：你 + 3~4 个情绪相近的匿名人。室友由后端 AI 各自按人设回应。支持文字 / 听写 / 纯语音。
-export default function RoomScreen({ room, onLeave }) {
+// 同频小屋：你 + 3~4 个情绪相近的匿名人。室友由后端 AI 各自按人设回应。
+// 消息提升到页面层，回退不丢。支持文字 / 听写 / 纯语音。
+export default function RoomScreen({ room, messages, setMessages, onBack, onLeave }) {
   const me = room.user_identity;
-  const [msgs, setMsgs] = useState(room.messages || []);
   const [typing, setTyping] = useState(false);
   const endRef = useRef(null);
+  const memberCount = (room.members?.length || 0);
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, typing]);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, typing]);
 
   const deliver = async (displayMsg, aiText) => {
     if (typing) return;
-    setMsgs((m) => [...m, displayMsg]);
+    setMessages((m) => [...m, displayMsg]);
     setTyping(true);
     try {
       const res = await api.sendRoomMessage(room.room_id, aiText);
-      setMsgs((m) => [...m, ...(res.replies || [])]);
+      setMessages((m) => [...m, ...(res.replies || [])]);
     } catch {
-      setMsgs((m) => [...m, { sender: "sys", name: "", avatar: "🌙", text: "（信号断了一下…大家还在。）" }]);
+      setMessages((m) => [...m, { sender: "sys", name: "", avatar: "🌙", text: "（信号断了一下…大家还在。）" }]);
     } finally {
       setTyping(false);
     }
@@ -35,10 +36,13 @@ export default function RoomScreen({ room, onLeave }) {
     <div className="fade">
       {/* 房间头部：氛围 + 成员 */}
       <div className="card" style={{ padding: 14, marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontWeight: 700 }}>「{room.vibe}」· 此刻聚在这里的人</div>
-            <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>同频小屋 · 共 {(room.members?.length || 0) + 1} 人 · 全程匿名</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <button className="btn" style={{ padding: "6px 11px", fontSize: 15 }} title="返回情绪页" onClick={onBack}>←</button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700 }}>「{room.vibe}」· 同频小屋</div>
+            <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+              你走进时，屋里已有 {memberCount} 人在 · 氛围：{room.vibe} · 全程匿名
+            </div>
           </div>
           <button className="btn" style={{ padding: "6px 12px", fontSize: 13 }} onClick={onLeave}>离开</button>
         </div>
@@ -52,7 +56,7 @@ export default function RoomScreen({ room, onLeave }) {
 
       {/* 消息流 */}
       <div className="card" style={{ minHeight: 340, maxHeight: 460, overflowY: "auto", display: "flex", flexDirection: "column", gap: 12 }}>
-        {msgs.map((m, i) => {
+        {messages.map((m, i) => {
           const mine = m.sender === "user";
           return (
             <div key={i} style={{ display: "flex", flexDirection: mine ? "row-reverse" : "row", gap: 8, alignItems: "flex-start" }}>
@@ -67,9 +71,12 @@ export default function RoomScreen({ room, onLeave }) {
           );
         })}
         {typing && (
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
             <span style={{ fontSize: 22 }}>💬</span>
-            <div className="bubble them dots"><span>·</span><span>·</span><span>·</span></div>
+            <div>
+              <div className="muted" style={{ fontSize: 11, marginBottom: 3 }}>屋里有人正在回应…</div>
+              <div className="bubble them dots"><span>·</span><span>·</span><span>·</span></div>
+            </div>
           </div>
         )}
         <div ref={endRef} />

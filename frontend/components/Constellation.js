@@ -98,9 +98,22 @@ export default function Constellation({ entries = [], onBack, onClear }) {
                   <span className="muted" style={{ fontSize: 12, marginLeft: "auto" }}>{fmt(cur.t)}</span>
                 </div>
                 {cur.poetic && <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>“{cur.poetic}”</div>}
+                {cur.text && (
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+                    <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>你当时写下：</div>
+                    <div style={{ fontSize: 14, lineHeight: 1.65, whiteSpace: "pre-wrap", maxHeight: 150, overflowY: "auto" }}>{cur.text}</div>
+                  </div>
+                )}
+                {cur.keywords?.length > 0 && (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+                    {cur.keywords.map((k, i) => (
+                      <span key={i} className="chip" style={{ padding: "3px 10px", fontSize: 11, cursor: "default" }}>{k}</span>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-            <div className="muted center" style={{ fontSize: 11, marginTop: 10 }}>点任意一颗星，回到那一刻 · 仅存于本机，从不上传</div>
+            <div className="muted center" style={{ fontSize: 11, marginTop: 10 }}>点任意一颗星，回看那一刻你写下的话 · 仅存于本机，从不上传</div>
           </>
         )}
       </div>

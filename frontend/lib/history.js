@@ -2,14 +2,16 @@
 const KEY = "gravity_constellation_v1";
 const MAX = 60;
 
-export function addEntry(emotion, identity) {
+export function addEntry(emotion, identity, text) {
   if (typeof window === "undefined" || !emotion) return;
   try {
     const list = getEntries();
     list.push({
       t: Date.now(),
+      text: (text || "").trim().slice(0, 500),   // 你当时写下的原话
       label: emotion.label || "复杂",
       poetic: emotion.poetic || "",
+      explanation: emotion.explanation || "",
       valence: emotion.valence,
       arousal: emotion.arousal,
       color: emotion.color || "#b3a8ff",
