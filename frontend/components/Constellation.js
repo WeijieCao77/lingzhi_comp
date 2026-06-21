@@ -1,10 +1,10 @@
 "use client";
 import { useState } from "react";
-import { api } from "../lib/api";
 
 // 情绪星座 · 把你每一个"此刻"沉淀成天上的星。
-// 设计：星图上只放星星（越新越大越亮、最近的会呼吸，不画连线避免交叉杂乱）；
-// 下方一条横向时间带表达先后（左→右=早→近），点选与星图联动。
+// 星图只放星星（越新越大越亮、最近的会呼吸，不画连线避免交叉杂乱）；
+// 下方一条横向时间带表达先后（左→右=早→近），点选与星图联动；
+// 再下面常驻一段简单小结：从最早到最近的变化 + 最常落在哪个区间。
 const W = 340, H = 300, PAD = 36;
 const xOf = (v) => PAD + ((v + 1) / 2) * (W - 2 * PAD);
 const yOf = (a) => (H - PAD) - a * (H - 2 * PAD);
@@ -20,41 +20,39 @@ function fmt(t) {
   const p = (n) => String(n).padStart(2, "0");
   return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
-function insight(entries) {
-  if (entries.length < 2) return "继续记录，你的每一个此刻都会连成一片星座。";
+
+// 简单本地小结：① 最早→最近的变化  ② 最常停留的区间
+function summarize(entries) {
+  const n = entries.length;
   const counts = {};
   entries.forEach((e) => { const q = quadrant(e.valence, e.arousal); counts[q] = (counts[q] || 0) + 1; });
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
-  const half = Math.floor(entries.length / 2);
+  const dominant = `这段时间，你最常停留在「${top}」。`;
+
+  const q1 = quadrant(entries[0].valence, entries[0].arousal);
+  const qN = quadrant(entries[n - 1].valence, entries[n - 1].arousal);
+  const half = Math.floor(n / 2);
   const avg = (arr) => arr.reduce((s, e) => s + e.valence, 0) / (arr.length || 1);
-  const trend = avg(entries.slice(half)) - avg(entries.slice(0, half));
-  let tail = "";
-  if (trend > 0.12) tail = " 而且，你在慢慢往更亮的方向走。";
-  else if (trend < -0.12) tail = " 最近沉了一些——记得对自己温柔一点。";
-  return `这些日子，你最常停留在「${top}」。${tail}`;
+  const dv = avg(entries.slice(half)) - avg(entries.slice(0, half));
+
+  let journey;
+  if (q1 === qN && Math.abs(dv) < 0.12) {
+    journey = `从最早到最近，你一直稳稳地待在「${qN}」里。`;
+  } else if (dv > 0.12) {
+    journey = `从最早的「${q1}」，到最近的「${qN}」——你在慢慢往更明亮、更温柔的方向走。`;
+  } else if (dv < -0.12) {
+    journey = `从最早的「${q1}」，到最近的「${qN}」——最近沉了一些，记得对自己温柔一点。`;
+  } else {
+    journey = `从「${q1}」到「${qN}」，一路有起伏，你在慢慢找回自己的节奏。`;
+  }
+  return { journey, dominant };
 }
 
 export default function Constellation({ entries = [], onBack, onClear }) {
   const [sel, setSel] = useState(entries.length ? entries.length - 1 : -1);
-  const [report, setReport] = useState("");
-  const [reporting, setReporting] = useState(false);
-  const [reportErr, setReportErr] = useState("");
   const cur = sel >= 0 ? entries[sel] : null;
   const n = entries.length;
-
-  const genReport = async () => {
-    if (reporting || n < 2) return;
-    setReporting(true); setReportErr("");
-    try {
-      // 只发情绪摘要（不含你写的原话）
-      const r = await api.report(entries.map((e) => ({ label: e.label, valence: e.valence, arousal: e.arousal, t: e.t })));
-      setReport((r.report || "").trim());
-    } catch {
-      setReportErr("生成失败，请重试");
-    } finally {
-      setReporting(false);
-    }
-  };
+  const sum = n >= 2 ? summarize(entries) : null;
 
   return (
     <div className="fade" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -127,7 +125,18 @@ export default function Constellation({ entries = [], onBack, onClear }) {
               </div>
             </div>
 
-            <div className="muted center" style={{ fontSize: 13, margin: "12px 6px 0", lineHeight: 1.6 }}>{insight(entries)}</div>
+            {/* 常驻小结：从最早到最近的变化 + 最常落在哪个区间 */}
+            {sum ? (
+              <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 14,
+                background: "color-mix(in srgb, var(--accent) 9%, rgba(10,8,30,0.4))",
+                border: "1px solid color-mix(in srgb, var(--accent) 30%, var(--border))" }}>
+                <div className="muted" style={{ fontSize: 11, marginBottom: 7 }}>✦ 这段时间的你</div>
+                <div style={{ fontSize: 14.5, lineHeight: 1.85 }}>{sum.journey}</div>
+                <div style={{ fontSize: 14.5, lineHeight: 1.85 }}>{sum.dominant}</div>
+              </div>
+            ) : (
+              <div className="muted center" style={{ fontSize: 13, marginTop: 14 }}>这是你的第一颗星——继续记录，就能看见自己的情绪轨迹。</div>
+            )}
 
             {cur && (
               <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 14, background: "rgba(10,8,30,0.4)", border: "1px solid var(--border)" }}>
@@ -152,27 +161,7 @@ export default function Constellation({ entries = [], onBack, onClear }) {
                 )}
               </div>
             )}
-
-            {/* 情绪小结（AI，只发情绪摘要，不含原话） */}
-            {n >= 2 && (
-              <div style={{ marginTop: 14 }}>
-                {!report ? (
-                  <button className="btn" style={{ width: "100%" }} onClick={genReport} disabled={reporting}>
-                    {reporting ? <span className="spin" /> : "✨ 生成这段时间的情绪小结"}
-                  </button>
-                ) : (
-                  <div style={{ padding: "14px 16px", borderRadius: 14, background: "color-mix(in srgb, var(--accent) 10%, rgba(10,8,30,0.4))", border: "1px solid color-mix(in srgb, var(--accent) 35%, var(--border))" }}>
-                    <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>✨ 你的情绪小结</div>
-                    <div style={{ fontSize: 14.5, lineHeight: 1.8 }}>{report}</div>
-                    <button className="btn" style={{ marginTop: 10, fontSize: 13, padding: "6px 12px" }} onClick={genReport} disabled={reporting}>
-                      {reporting ? <span className="spin" /> : "重新生成"}
-                    </button>
-                  </div>
-                )}
-                {reportErr && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>{reportErr}</div>}
-                <div className="muted center" style={{ fontSize: 11, marginTop: 8 }}>小结只根据你的情绪走势生成，不会用到你写的原话</div>
-              </div>
-            )}
+            <div className="muted center" style={{ fontSize: 11, marginTop: 10 }}>点任意一颗星，回看那一刻你写下的话 · 仅存于本机，从不上传</div>
           </>
         )}
       </div>
