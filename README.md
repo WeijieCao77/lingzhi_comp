@@ -6,8 +6,8 @@
 
 为「灵治擂台赛 第三期」而作。
 
-**🔗 线上地址（Live Demo）：** _部署后填入_
-**🔗 后端 API：** _部署后填入_
+**🔗 线上地址（Live Demo）：** https://spectacular-reprieve-production-3239.up.railway.app
+**🔗 后端 API（健康检查）：** https://lingzhicomp-production.up.railway.app/api/health
 
 ---
 
