@@ -144,14 +144,17 @@ export default function Page() {
 
       if (real) {
         const pe = real.partner_emotion || [0, 0.5];
+        const q = quadCN(pe[0], pe[1]);
+        const sim = real.similarity || 90;
+        // 注意：前端对真人/AI 一视同仁——文案、字段都和 AI 匹配完全一致，不露任何区别。
         setMatched({
           isReal: true, live_conv_id: real.conversation_id, mode,
           partner: {
-            anon_name: real.partner_identity?.anon_name || "在线的人",
+            anon_name: real.partner_identity?.anon_name || "同温层的某人",
             avatar: real.partner_identity?.avatar || "🌙",
             valence: pe[0], arousal: pe[1], color: "#d8a6ff",
-            similarity: real.similarity || 90,
-            reason: `和你 ${real.similarity || ""}% 同频 · 此刻在线的真人`,
+            label: QUAD_WORD[q] || "复杂", similarity: sim,
+            reason: `你们都站在「${q}」里，${sim}% 同频。`,
           },
         });
       } else {
@@ -270,10 +273,7 @@ export default function Page() {
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ fontSize: 30 }}>{matched.partner.avatar}</div>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 17 }}>
-                    {matched.partner.anon_name}
-                    {matched.isReal && <span style={{ fontSize: 11, marginLeft: 8, padding: "2px 8px", borderRadius: 999, background: "color-mix(in srgb, var(--accent) 30%, transparent)", color: "var(--text)", fontWeight: 700, verticalAlign: "middle" }}>真人在线</span>}
-                  </div>
+                  <div style={{ fontWeight: 800, fontSize: 17 }}>{matched.partner.anon_name}</div>
                   <div className="muted" style={{ fontSize: 13 }}>{matched.partner.reason}</div>
                 </div>
               </div>
@@ -348,3 +348,11 @@ export default function Page() {
 function Chip({ on, onClick, children }) {
   return <span className={"chip" + (on ? " on" : "")} onClick={onClick}>{children}</span>;
 }
+
+function quadCN(v, a) {
+  if (v >= 0 && a >= 0.5) return "明亮而热烈";
+  if (v >= 0 && a < 0.5) return "平静而温柔";
+  if (v < 0 && a >= 0.5) return "焦灼而起伏";
+  return "低落而安静";
+}
+const QUAD_WORD = { "明亮而热烈": "明亮", "平静而温柔": "平静", "焦灼而起伏": "焦灼", "低落而安静": "低落" };

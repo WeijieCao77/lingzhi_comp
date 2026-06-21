@@ -38,7 +38,7 @@ export default function RealChatScreen({ convId, uid, me, partner, onBack, onLea
 
   const send = async (t) => {
     const text = (t || "").trim();
-    if (!text || ended) return;
+    if (!text) return;
     try {
       const r = await api.liveSend(convId, uid, text);
       if (r && r.message && !seenRef.current.has(r.message.id)) {
@@ -56,32 +56,30 @@ export default function RealChatScreen({ convId, uid, me, partner, onBack, onLea
         <button className="btn" style={{ padding: "6px 11px", fontSize: 15 }} title="返回情绪页" onClick={onBack}>←</button>
         <div style={{ fontSize: 26 }}>{partner.avatar}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700 }}>
-            {partner.anon_name}
-            <span style={{ fontSize: 11, marginLeft: 8, padding: "2px 8px", borderRadius: 999, background: "color-mix(in srgb, var(--accent) 30%, transparent)", fontWeight: 700 }}>真人在线</span>
+          <div style={{ fontWeight: 700 }}>{partner.anon_name}</div>
+          <div className="muted" style={{ fontSize: 12 }}>
+            {partner.label ? partner.label + " · " : ""}{partner.similarity}% 同频
           </div>
-          <div className="muted" style={{ fontSize: 12 }}>{partner.similarity}% 同频 · 此刻和你在线</div>
         </div>
         <button className="btn" style={{ padding: "6px 12px", fontSize: 13 }} onClick={onLeave}>离开</button>
       </div>
 
       {/* 消息流 */}
       <div className="card" style={{ minHeight: 320, maxHeight: 440, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
-        {msgs.length === 0 && !ended && (
-          <div className="muted center" style={{ margin: "auto", fontSize: 13, padding: 20 }}>你们刚被同一片情绪连到一起 —— 说句话，打个招呼吧。</div>
+        {msgs.length === 0 && (
+          <div className="muted center" style={{ margin: "auto", fontSize: 13, padding: 20 }}>你们刚因为相近的情绪遇见 —— 说句话，打个招呼吧。</div>
         )}
         {msgs.map((m, i) => (
           <div key={m.id ?? i} style={{ alignSelf: m.mine ? "flex-end" : "flex-start", maxWidth: "82%" }}>
             <div className={"bubble " + (m.mine ? "me" : "them")}>{m.text}</div>
           </div>
         ))}
-        {ended && <div className="muted center" style={{ fontSize: 12, marginTop: 6 }}>对方已离开。你可以返回，再找一个同频的人。</div>}
         <div ref={endRef} />
       </div>
 
-      <ChatComposer onSendText={send} onSendVoice={({ text }) => send(text)} placeholder={`对 ${partner.anon_name} 说点什么…`} disabled={ended} />
+      <ChatComposer onSendText={send} onSendVoice={({ text }) => send(text)} placeholder={`对 ${partner.anon_name} 说点什么…`} />
       <div className="muted center" style={{ fontSize: 12, marginTop: 10 }}>
-        你是「{me.anon_name}」{me.avatar} · 这是一个真实的人，全程匿名
+        你是「{me.anon_name}」{me.avatar} · 全程匿名，TA 不知道你是谁
       </div>
     </div>
   );
