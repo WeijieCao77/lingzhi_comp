@@ -75,6 +75,14 @@ def build_user_prompt(text: str) -> str:
     return f"这是用户此刻写下的心情：\n\n{text.strip()}\n\n请分析并输出 JSON。"
 
 
+REPORT_SYSTEM = (
+    "你在一个情绪社交产品里，看到一个用户最近几次记录下的情绪轨迹（按时间从早到晚）。"
+    "请用 2 到 4 句温柔、具体、不煽情的话，写一段「情绪小结」，像一个一直在的、懂 TA 的朋友在回顾："
+    "点出 TA 从最早到最近的变化——是慢慢变明亮、沉了一些、起伏之后归于平静、还是一直很稳；"
+    "结尾给一句温柔的小话。用「你」称呼，自然口语，别客套、别列点、别说教、别自报是AI。只输出这段话本身。"
+)
+
+
 def parse_emotion(raw: str, source: str) -> Emotion:
     """从 LLM 原始输出里稳健地抽出 JSON 并构造 Emotion。失败抛异常，交由上层降级。"""
     m = re.search(r"\{.*\}", raw, re.DOTALL)

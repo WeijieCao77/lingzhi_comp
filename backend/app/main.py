@@ -68,6 +68,17 @@ class MessageIn(BaseModel):
     text: str
 
 
+class ReportEntry(BaseModel):
+    label: str = ""
+    valence: float = 0.0
+    arousal: float = 0.5
+    t: int = 0                       # 时间戳(ms)，可选；只发情绪摘要，不含原话
+
+
+class ReportIn(BaseModel):
+    entries: List[ReportEntry] = Field(default_factory=list)
+
+
 # ---------- 工具 ----------
 STYLE_GUIDE = {
     "empathic": "你的陪伴方式偏「想被懂」(F)：先共情和复述对方的感受，让 TA 觉得被接住，"
@@ -142,6 +153,43 @@ def analyze(body: AnalyzeIn):
         "kindred_count": _kindred_count(emo),       # "此刻有 N 个人和你同频"
         "user_identity": identity_for(emo),          # 按情绪自动分配的卡通动物形象
     }
+
+
+def _summarize_for_report(items: List[ReportEntry]) -> str:
+    lines = []
+    for i, e in enumerate(items, 1):
+        q = quadrant(e.valence, e.arousal)
+        lines.append(f"{i}. {e.label or '复杂'}（效价 {round(e.valence, 2)}，唤醒 {round(e.arousal, 2)}，{q}）")
+    return f"用户最近 {len(items)} 次记录的情绪（从早到晚）：\n" + "\n".join(lines)
+
+
+def _template_report(items: List[ReportEntry]) -> str:
+    q1 = quadrant(items[0].valence, items[0].arousal)
+    qn = quadrant(items[-1].valence, items[-1].arousal)
+    dv = items[-1].valence - items[0].valence
+    if q1 == qn:
+        trend = f"这段时间你大多停在「{qn}」，情绪挺稳的。"
+    elif dv > 0.15:
+        trend = f"从最早的「{q1}」一路走到「{qn}」，整体在慢慢明亮起来。"
+    elif dv < -0.15:
+        trend = f"从「{q1}」到「{qn}」，最近沉了一些——记得对自己温柔一点。"
+    else:
+        trend = f"在「{q1}」和「{qn}」之间起伏，慢慢找着自己的节奏。"
+    return f"你记录了 {len(items)} 个此刻。{trend}愿你被好好接住。"
+
+
+@app.post("/api/report")
+def report(body: ReportIn):
+    """情绪小结：根据情绪轨迹摘要（不含原话）生成一段温柔回顾。LLM 失败自动降级模板。"""
+    items = body.entries or []
+    if len(items) < 2:
+        raise HTTPException(400, "至少要两条记录，才能看出变化")
+    text = None
+    try:
+        text = get_provider().reflect(_summarize_for_report(items))
+    except Exception:
+        text = None
+    return {"report": (text or _template_report(items)).strip()}
 
 
 @app.post("/api/transcribe")

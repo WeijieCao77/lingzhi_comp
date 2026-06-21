@@ -54,6 +54,15 @@ class ResilientProvider:
                 log.warning("chat failed on %s, degrading: %s", self.primary_name, e)
         return self.fallback.chat(system, messages, max_tokens=max_tokens)
 
+    def reflect(self, summary_text: str):
+        """情绪小结：主接口失败/无 key 时返回 None，由上层用本地模板兜底。"""
+        if self._primary:
+            try:
+                return self._primary.reflect(summary_text)
+            except Exception as e:
+                log.warning("reflect failed on %s: %s", self.primary_name, e)
+        return None
+
 
 _instance: ResilientProvider | None = None
 

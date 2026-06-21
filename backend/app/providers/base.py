@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 from typing import List, Dict
-from ..emotion import Emotion, ANALYZE_SYSTEM, build_user_prompt, parse_emotion
+from ..emotion import Emotion, ANALYZE_SYSTEM, REPORT_SYSTEM, build_user_prompt, parse_emotion
 
 
 class LLMProvider:
@@ -30,3 +30,12 @@ class LLMProvider:
 
     def chat(self, system: str, messages: List[Dict], max_tokens: int = 320) -> str:
         return self.complete(system, messages, max_tokens=max_tokens).strip()
+
+    def reflect(self, summary_text: str) -> str:
+        """根据情绪轨迹摘要写一段「情绪小结」。用更快的分析模型。"""
+        return self.complete(
+            REPORT_SYSTEM,
+            [{"role": "user", "content": summary_text}],
+            max_tokens=260,
+            model=self.analyze_model,
+        ).strip()

@@ -105,6 +105,7 @@ FRONTEND_ORIGIN=*
 | POST | `/api/room` | 组建同频小屋 |
 | POST | `/api/rooms/{id}/messages` | 小屋多人对话 |
 | POST | `/api/transcribe` | 语音转文字（纯语音消息，OpenAI Whisper） |
+| POST | `/api/report` | 情绪小结：据情绪轨迹摘要生成一段温柔回顾（仅情绪元数据，不含原话） |
 
 ---
 
