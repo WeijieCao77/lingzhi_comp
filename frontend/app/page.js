@@ -310,6 +310,7 @@ export default function Page() {
               </div>
               <button className="btn btn-primary" style={{ width: "100%", marginTop: 14 }} onClick={enterRoom}>进入小屋 →</button>
               <button className="btn" style={{ width: "100%", marginTop: 8 }} onClick={doRoom} disabled={busy}>{busy ? <span className="spin" /> : "换一个小屋"}</button>
+              <button className="btn" style={{ width: "100%", marginTop: 8 }} onClick={() => setRoomReady(false)}>← 重新选择（一对一 / 换方式）</button>
             </div>
           )}
 
