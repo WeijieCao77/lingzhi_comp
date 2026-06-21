@@ -1,11 +1,23 @@
-node_modules/
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
 .env
 .env.local
-npm-debug.log*
+# 临时/调试脚本（_ 前缀）不进仓库
+backend/_*
+_*test.py
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
 .DS_Store
 *.log
 
-# 备战材料（含其他选手信息 / 个人策略）—— 公开仓库不上传
+# 备战材料（含他人信息）不公开
 巡梦解题复盘.pdf
 灵治擂台赛-备战分析报告.md
 .claude/

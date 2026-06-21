@@ -1,0 +1,86 @@
+:root {
+  --bg: #07061a;             /* 深空夜底 */
+  --surface: rgba(26, 23, 58, 0.55);    /* 玻璃质感卡片（浮在星云上）*/
+  --surface-2: rgba(42, 37, 84, 0.55);
+  --text: #ece9fb;
+  --muted: #9a93c6;
+  --accent: #b3a8ff;         /* 星光紫罗兰 */
+  --accent-2: #d8a6ff;       /* 星云粉紫 */
+  --border: rgba(150, 140, 235, 0.18);
+  --radius: 18px;
+  --font: "PingFang SC", "Microsoft YaHei", -apple-system, system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; padding: 0; }
+body {
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(900px 620px at 16% 18%, rgba(108, 78, 214, 0.38), transparent 62%),
+    radial-gradient(820px 700px at 86% 26%, rgba(58, 86, 210, 0.32), transparent 62%),
+    radial-gradient(760px 640px at 72% 84%, rgba(196, 96, 214, 0.22), transparent 60%),
+    radial-gradient(680px 560px at 24% 88%, rgba(40, 44, 132, 0.40), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+/* 星尘层：平铺的小星星 + 缓慢闪烁 */
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    radial-gradient(1.4px 1.4px at 25% 12%, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 68% 32%, rgba(255,255,255,.85), transparent),
+    radial-gradient(1px 1px at 45% 62%, rgba(255,255,255,.7), transparent),
+    radial-gradient(1.6px 1.6px at 82% 72%, #fff, transparent),
+    radial-gradient(1px 1px at 12% 78%, rgba(214,210,255,.8), transparent),
+    radial-gradient(1.2px 1.2px at 92% 16%, rgba(255,255,255,.75), transparent),
+    radial-gradient(1px 1px at 35% 88%, rgba(255,255,255,.6), transparent);
+  background-size: 260px 260px, 320px 320px, 240px 240px, 380px 380px, 300px 300px, 420px 420px, 280px 280px;
+  background-repeat: repeat;
+  animation: twinkle 6s ease-in-out infinite;
+}
+@keyframes twinkle { 0%,100% { opacity:.55 } 50% { opacity:.95 } }
+.wrap { position: relative; z-index: 1; max-width: 600px; margin: 0 auto; padding: 32px 18px 90px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;
+  backdrop-filter: blur(14px) saturate(1.1); -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow: 0 8px 40px rgba(10, 6, 40, 0.35);
+}
+.muted { color: var(--muted); }
+.center { text-align: center; }
+.btn {
+  border: 1px solid var(--border); border-radius: 13px; padding: 11px 18px; cursor: pointer;
+  background: var(--surface-2); color: var(--text); font-size: 15px; font-family: inherit; transition: .15s;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+.btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border: none; color: #1a1530; font-weight: 700;
+  box-shadow: 0 4px 24px rgba(179, 168, 255, 0.35); }
+.btn-primary:hover { filter: brightness(1.08); }
+.chip {
+  border: 1px solid var(--border); border-radius: 999px; padding: 8px 14px; cursor: pointer;
+  background: var(--surface-2); color: var(--muted); font-size: 14px; transition: .15s; user-select: none;
+}
+.chip.on { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 22%, transparent); box-shadow: 0 0 16px rgba(179,168,255,.25); }
+.input {
+  background: rgba(10, 8, 30, 0.5); border: 1px solid var(--border); border-radius: 14px; padding: 14px;
+  color: var(--text); width: 100%; outline: none; font-size: 16px; font-family: inherit; line-height: 1.7; resize: vertical;
+}
+.input:focus { border-color: var(--accent); }
+.input::placeholder { color: #6f6896; }
+.title { font-size: 26px; font-weight: 800; margin: 0;
+  background: linear-gradient(135deg, #c9c0ff, var(--accent-2));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 30px rgba(179,168,255,.3); }
+.fade { animation: fade .4s ease both; }
+@keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.dots span { animation: blink 1.4s infinite both; }
+.dots span:nth-child(2){ animation-delay:.2s } .dots span:nth-child(3){ animation-delay:.4s }
+@keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+.spin { display:inline-block; width:15px; height:15px; border:2px solid rgba(26,21,48,.4); border-top-color:#1a1530; border-radius:99px; animation: r .7s linear infinite; vertical-align:-2px; }
+@keyframes r { to { transform: rotate(360deg); } }
+.bubble { padding: 11px 14px; border-radius: 16px; max-width: 78%; line-height: 1.6; font-size: 15px; white-space: pre-wrap; }
+.bubble.me { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #1a1530; font-weight: 500; border-bottom-right-radius: 5px; }
+.bubble.them { background: rgba(42, 37, 84, 0.6); border: 1px solid var(--border); border-bottom-left-radius: 5px; backdrop-filter: blur(8px); }
+::-webkit-scrollbar { width: 9px; } ::-webkit-scrollbar-thumb { background: rgba(150,140,235,.25); border-radius: 99px; }
