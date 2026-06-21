@@ -10,10 +10,11 @@ from ..emotion import Emotion, ANALYZE_SYSTEM, build_user_prompt, parse_emotion
 
 class LLMProvider:
     name = "base"
+    analyze_model = None   # 子类可设：情绪分析专用的更快模型
 
     def complete(self, system: str, messages: List[Dict], max_tokens: int = 800,
-                 json_mode: bool = False) -> str:
-        """子类实现：给定 system + 多轮 messages，返回模型文本。"""
+                 json_mode: bool = False, model: str = None) -> str:
+        """子类实现：给定 system + 多轮 messages，返回模型文本。model 可覆盖默认模型。"""
         raise NotImplementedError
 
     # ---- 高层能力（两套接口共用）----
@@ -23,6 +24,7 @@ class LLMProvider:
             [{"role": "user", "content": build_user_prompt(text)}],
             max_tokens=500,
             json_mode=True,
+            model=self.analyze_model,    # 用更快的分析模型
         )
         return parse_emotion(raw, source=self.name)
 

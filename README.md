@@ -62,7 +62,8 @@ LLM_PROVIDER=anthropic
 
 # --- Anthropic 标准接口 ---
 ANTHROPIC_API_KEY=sk-ant-...
-ANTHROPIC_MODEL=claude-opus-4-8
+ANTHROPIC_MODEL=claude-opus-4-8            # 聊天（要人味）
+ANTHROPIC_ANALYZE_MODEL=claude-sonnet-4-6  # 情绪分析（求快；可换 claude-haiku-4-5 更快）
 
 # --- OpenAI 标准接口（兼容任意 OpenAI 端点）---
 OPENAI_API_KEY=sk-...

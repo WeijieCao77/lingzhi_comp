@@ -8,10 +8,19 @@ export function recordSupported() {
   );
 }
 
+// 选一个本浏览器真正支持的录音格式：Chrome→webm，iOS Safari→mp4。
+function pickMime() {
+  if (typeof MediaRecorder === "undefined" || !MediaRecorder.isTypeSupported) return "";
+  for (const t of ["audio/webm", "audio/mp4", "audio/ogg"]) {
+    if (MediaRecorder.isTypeSupported(t)) return t;
+  }
+  return "";
+}
+
 export async function startRecording() {
   if (!recordSupported()) throw new Error("recording-unsupported");
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
+  const mime = pickMime();
   const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
   const chunks = [];
   rec.ondataavailable = (e) => {
@@ -20,21 +29,20 @@ export async function startRecording() {
   const started = Date.now();
   rec.start();
   const cleanup = () => stream.getTracks().forEach((t) => t.stop());
+  const finalType = () => rec.mimeType || mime || "audio/webm";  // 实际用的格式
   return {
     stop: () =>
       new Promise((resolve) => {
         rec.onstop = () => {
           cleanup();
-          resolve({
-            blob: new Blob(chunks, { type: mime || "audio/webm" }),
-            durationMs: Date.now() - started,
-          });
+          const type = finalType();
+          resolve({ blob: new Blob(chunks, { type }), durationMs: Date.now() - started, mimeType: type });
         };
         try {
           rec.stop();
         } catch {
           cleanup();
-          resolve({ blob: new Blob(chunks), durationMs: Date.now() - started });
+          resolve({ blob: new Blob(chunks), durationMs: Date.now() - started, mimeType: finalType() });
         }
       }),
     cancel: () => {

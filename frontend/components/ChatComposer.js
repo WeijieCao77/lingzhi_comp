@@ -64,11 +64,20 @@ export default function ChatComposer({ onSendText, onSendVoice, placeholder = "�
     setBusyVoice(true);
     let res;
     try { res = await ctrl.stop(); } catch { setBusyVoice(false); return; }
-    if (!res || res.durationMs < 700) { setBusyVoice(false); setNote("说话时间太短"); return; }
-    let txt = "";
-    try { const r = await api.transcribe(res.blob); txt = (r.text || "").trim(); } catch { txt = ""; }
+    if (!res || res.durationMs < 700) { setBusyVoice(false); setNote("说话时间太短，按住多说一会儿"); return; }
+    const type = res.mimeType || (res.blob && res.blob.type) || "";
+    const ext = /mp4|mpeg|m4a|aac/.test(type) ? "mp4" : /ogg/.test(type) ? "ogg" : /wav/.test(type) ? "wav" : "webm";
+    let txt = null;
+    try {
+      const r = await api.transcribe(res.blob, `voice.${ext}`);
+      txt = (r.text || "").trim();
+    } catch {
+      setBusyVoice(false);
+      setNote("语音服务暂时不可用，请改用文字");
+      return;
+    }
     setBusyVoice(false);
-    if (!txt) { setNote("语音转写暂不可用，请改用文字"); return; }
+    if (!txt) { setNote("没太听清，再说一遍试试～"); return; }
     onSendVoice({ audioUrl: URL.createObjectURL(res.blob), durationMs: res.durationMs, text: txt });
   };
 

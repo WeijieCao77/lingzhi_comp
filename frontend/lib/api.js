@@ -30,9 +30,9 @@ export const api = {
   createRoom: (emotion, prefer_style, user_identity) =>
     post("/api/room", { emotion, prefer_style, user_identity, size: 6 }),
   sendRoomMessage: (rid, text) => post(`/api/rooms/${rid}/messages`, { text }),
-  transcribe: (blob) => {
+  transcribe: (blob, filename = "voice.webm") => {
     const fd = new FormData();
-    fd.append("audio", blob, "voice.webm");
+    fd.append("audio", blob, filename);
     return postForm("/api/transcribe", fd);
   },
 };

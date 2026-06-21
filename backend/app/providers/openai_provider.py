@@ -18,11 +18,12 @@ class OpenAIProvider(LLMProvider):
             kwargs["base_url"] = config.OPENAI_BASE_URL
         self.client = OpenAI(**kwargs)
         self.model = config.OPENAI_MODEL
+        self.analyze_model = config.OPENAI_ANALYZE_MODEL
 
     def complete(self, system: str, messages: List[Dict], max_tokens: int = 800,
-                 json_mode: bool = False) -> str:
+                 json_mode: bool = False, model: str = None) -> str:
         msgs = [{"role": "system", "content": system}] + messages
-        kwargs = {"model": self.model, "messages": msgs, "max_tokens": max_tokens,
+        kwargs = {"model": model or self.model, "messages": msgs, "max_tokens": max_tokens,
                   "temperature": 0.7, "timeout": 25}
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}

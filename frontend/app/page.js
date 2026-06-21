@@ -32,6 +32,8 @@ export default function Page() {
   const [convMsgs, setConvMsgs] = useState([]);         // 一对一消息（提到页面层，回退不丢）
   const [convCid, setConvCid] = useState(null);
   const [roomMsgs, setRoomMsgs] = useState([]);         // 小屋消息（同上）
+  const [roomMsgsId, setRoomMsgsId] = useState(null);
+  const [roomReady, setRoomReady] = useState(false);    // 小屋已匹配、待你确认是否进入
   const stopDict = useRef(null);
 
   useEffect(() => { api.personas().then((d) => setPool(d.personas || [])).catch(() => {}); }, []);
@@ -41,8 +43,8 @@ export default function Page() {
     setStep("input"); setText(""); setEmotion(null); setKindred(null); setIdentity(null);
     setMatched(null); setMatching(false); setMatchDone(false);
     setSafety(null); setMode("resonance"); setStyle(null);
-    setChatMode("solo"); setRoom(null);
-    setConvMsgs([]); setConvCid(null); setRoomMsgs([]);
+    setChatMode("solo"); setRoom(null); setRoomReady(false);
+    setConvMsgs([]); setConvCid(null); setRoomMsgs([]); setRoomMsgsId(null);
   };
   const remix = () => { setMatched(null); setMatching(false); setMatchDone(false); };
 
@@ -55,15 +57,25 @@ export default function Page() {
     setStep("chat");
   };
 
+  // 组小屋：先匹配出一个小屋（揭晓标签+人数），由你决定进不进——不再直接塞进群
   const doRoom = async () => {
     if (busy) return;
-    setBusy(true);
+    setBusy(true); setRoomReady(false);
     try {
       const res = await api.createRoom(emotion, style, identity);
-      setRoom(res); setRoomMsgs(res.messages || []); setMatched(null); setStep("room");
+      setRoom(res); setMatched(null); setRoomReady(true);
     } catch {
-      alert("进入小屋失败，请重试");
+      alert("召集小屋失败，请重试");
     } finally { setBusy(false); }
+  };
+
+  // 真正进小屋：首次进入才铺暖场消息；从「返回」再进则保留
+  const enterRoom = () => {
+    if (room && roomMsgsId !== room.room_id) {
+      setRoomMsgs(room.messages || []);
+      setRoomMsgsId(room.room_id);
+    }
+    setStep("room");
   };
 
   const stopDictation = () => { if (stopDict.current) { stopDict.current(); stopDict.current = null; } setDictating(false); };
@@ -100,7 +112,7 @@ export default function Page() {
 
   const doMatch = async () => {
     if (busy) return;
-    setBusy(true); setMatched(null); setMatchDone(false); setMatching(true); setRoom(null);
+    setBusy(true); setMatched(null); setMatchDone(false); setMatching(true); setRoom(null); setRoomReady(false);
     try {
       const res = await api.match(emotion, mode, style, identity);
       setMatched(res);   // 传给 StarMap 后触发"靠近"动画
@@ -173,7 +185,7 @@ export default function Page() {
             />
 
             {/* 控件：仅在尚未匹配时显示 */}
-            {!matching && !matchDone && (
+            {!matching && !matchDone && !roomReady && (
               <div style={{ marginTop: 14 }}>
                 <div className="muted" style={{ fontSize: 13, marginBottom: 7 }}>想怎么聊？</div>
                 <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
@@ -223,13 +235,37 @@ export default function Page() {
             </div>
           )}
 
-          {!matching && !matchDone && (
-            <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn" style={{ flex: 1 }} onClick={() => setStep("input")}>← 返回修改（保留刚才写的）</button>
-              {room && (
-                <button className="btn" onClick={() => setStep("room")}>↩ 回到刚才的小屋</button>
-              )}
+          {/* 小屋揭晓：先看清是个什么样的屋（标签+人数），再决定进不进 */}
+          {roomReady && room && (
+            <div className="card fade">
+              <div className="muted" style={{ fontSize: 13, marginBottom: 8, textAlign: "center" }}>为你召集到一个同频小屋</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ fontSize: 28 }}>🛖</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>「{room.vibe}」· 同频小屋</div>
+                  <div className="muted" style={{ fontSize: 13 }}>屋里已有 {room.members?.length || 0} 人，和你情绪相近</div>
+                </div>
+              </div>
+              {(() => {
+                const tags = [...new Set((room.members || []).map((m) => m.label).filter(Boolean))].slice(0, 5);
+                return tags.length > 0 && (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                    {tags.map((t, i) => <span key={i} className="chip" style={{ padding: "4px 11px", fontSize: 12, cursor: "default" }}>{t}</span>)}
+                  </div>
+                );
+              })()}
+              <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                {room.members?.map((m) => (
+                  <span key={m.id} title={`${m.anon_name} · ${m.similarity}%`} style={{ fontSize: 22 }}>{m.avatar}</span>
+                ))}
+              </div>
+              <button className="btn btn-primary" style={{ width: "100%", marginTop: 14 }} onClick={enterRoom}>进入小屋 →</button>
+              <button className="btn" style={{ width: "100%", marginTop: 8 }} onClick={doRoom} disabled={busy}>{busy ? <span className="spin" /> : "换一个小屋"}</button>
             </div>
+          )}
+
+          {!matching && (
+            <button className="btn" onClick={() => setStep("input")}>← 返回修改（保留刚才写的）</button>
           )}
         </div>
       )}

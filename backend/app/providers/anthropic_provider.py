@@ -12,15 +12,16 @@ class AnthropicProvider(LLMProvider):
         import anthropic
         self.client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
         self.model = config.ANTHROPIC_MODEL
+        self.analyze_model = config.ANTHROPIC_ANALYZE_MODEL
 
     def complete(self, system: str, messages: List[Dict], max_tokens: int = 800,
-                 json_mode: bool = False) -> str:
+                 json_mode: bool = False, model: str = None) -> str:
         sys_prompt = system
         if json_mode:
             sys_prompt += "\n\n务必只返回一个合法 JSON 对象，不要任何解释或代码块围栏。"
         # 注意：claude-opus-4-8 等新模型已弃用 temperature 参数，不再传入（用默认采样）。
         resp = self.client.messages.create(
-            model=self.model,
+            model=model or self.model,
             system=sys_prompt,
             messages=messages,
             max_tokens=max_tokens,

@@ -3,6 +3,7 @@
 主链路：/analyze(识别+安全) → /match(同频/互补+破冰) → /conversations(匿名对话)
 """
 from __future__ import annotations
+import logging
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -110,6 +111,7 @@ def health():
         "has_openai": bool(config.OPENAI_API_KEY),
         "has_anthropic": bool(config.ANTHROPIC_API_KEY),
         "model": config.OPENAI_MODEL if config.LLM_PROVIDER == "openai" else config.ANTHROPIC_MODEL,
+        "analyze_model": config.OPENAI_ANALYZE_MODEL if config.LLM_PROVIDER == "openai" else config.ANTHROPIC_ANALYZE_MODEL,
     }
 
 
@@ -150,9 +152,14 @@ async def transcribe(audio: UploadFile = File(...)):
         raise HTTPException(400, "音频为空")
     try:
         text = transcribe_audio(data, audio.filename or "audio.webm")
-    except Exception:
+    except Exception as e:
+        # 打到日志（Railway 可见），方便定位真实原因（无 key / 格式 / 配额 等）
+        logging.getLogger("resonance.transcribe").warning(
+            "transcribe failed: %s | filename=%s ctype=%s bytes=%d",
+            e, audio.filename, audio.content_type, len(data),
+        )
         raise HTTPException(503, "语音转写暂不可用，请改用文字")
-    return {"text": text}
+    return {"text": text}   # 可能为空字符串（没听清）
 
 
 @app.post("/api/match")
